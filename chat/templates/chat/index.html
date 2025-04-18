@@ -1,0 +1,227 @@
+<!-- chat/templates/chat/index.html -->
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8"/>
+    <title>Chat Rooms</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;500;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <h1>Welcome to Chat</h1>
+    <div class="container">
+        <p class="lead-text">Start your conversation now</p>
+        
+        <div class="input-group">
+            <input required type="text" 
+                   id="user-name-input" 
+                   placeholder="Your name">
+        </div>
+
+        <div class="input-group">
+            <input required type="text" 
+                   id="room-name-input" 
+                   placeholder="Room name">
+        </div>
+
+        <input id="room-name-submit" type="button" value="Join Chat">
+    </div>
+
+    <script>
+        document.querySelector('#room-name-input').focus();
+        document.querySelector('#room-name-input').onkeyup = function(e) {
+            if (e.key === 'Enter') {  // enter, return
+                document.querySelector('#room-name-submit').click();
+            }
+        };
+
+        document.querySelector('#room-name-submit').onclick = function(e) {
+            var roomName = document.querySelector('#room-name-input').value;
+            var userName = document.querySelector('#user-name-input').value;
+            window.location.pathname = '/chat/' + roomName + '/' +  userName;
+        };
+    </script>
+    <style>
+
+    .container,
+    h1{
+    opacity: 1 !important;
+    }
+
+        :root {
+            --primary: #6C5CE7;
+            --secondary: #A8A4FF;
+            --accent: #E94584;
+            --text: rgba(255,255,255,0.9);
+        }
+    
+        body {
+            margin: 0;
+            padding: 0;
+            min-height: 100vh;
+            background: linear-gradient(-45deg, #0F3460, #16213E, #1A1A2E);
+            background-size: 400% 400%;
+            animation: gradientBG 15s ease infinite;
+            font-family: 'Inter', sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: var(--text);
+            overflow: hidden;
+        }
+    
+        @keyframes gradientBG {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+    
+        h1 {
+            font-size: 4rem;
+            margin-bottom: 1rem;
+            text-shadow: 0 4px 20px rgba(0,0,0,0.3);
+            transform: translateY(-50px);
+            opacity: 0;
+        }
+    
+        .container {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(12px);
+            border-radius: 20px;
+            padding: 2.5rem;
+            width: 90%;
+            max-width: 600px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+            border: 1px solid rgba(255,255,255,0.1);
+            transform: scale(0.95);
+            opacity: 0;
+        }
+    
+        .input-group {
+            margin: 1.5rem 0;
+            position: relative;
+        }
+    
+        input[type="text"] {
+            width: 100%;
+            padding: 1.2rem;
+            border: none;
+            border-radius: 15px;
+            background: rgba(255,255,255,0.08);
+            color: white;
+            font-size: 1.1rem;
+            transition: all 0.3s ease;
+        }
+    
+        input[type="text"]::placeholder {
+            color: rgba(255,255,255,0.6);
+        }
+    
+        input[type="text"]:focus {
+            outline: none;
+            box-shadow: 0 0 20px var(--primary);
+            background: rgba(255,255,255,0.12);
+        }
+    
+        #room-name-submit {
+            width: 100%;
+            padding: 1.2rem;
+            border: none;
+            border-radius: 15px;
+            background: linear-gradient(45deg, var(--primary), var(--secondary));
+            color: white;
+            font-size: 1.1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+    
+        #room-name-submit:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 25px rgba(108, 92, 231, 0.4);
+        }
+    
+        .floating-bg {
+            position: absolute;
+            width: 150px;
+            height: 150px;
+            background: rgba(255,255,255,0.03);
+            border-radius: 50%;
+            filter: blur(40px);
+            z-index: -1;
+        }
+    
+        @keyframes float {
+            0%, 100% { transform: translateY(0) rotate(0deg); }
+            25% { transform: translateY(-20px) rotate(5deg); }
+            75% { transform: translateY(20px) rotate(-5deg); }
+        }
+    </style>
+    
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // GSAP Animations
+            gsap.to("h1", {
+                duration: 1.2,
+                y: 0,
+                opacity: 1,
+                ease: "power4.out",
+                delay: 0.3
+            });
+    
+            gsap.to(".container", {
+                duration: 1,
+                scale: 1,
+                opacity: 1,
+                ease: "elastic.out(1, 0.8)",
+                delay: 0.5
+            });
+    
+            gsap.from(".input-group", {
+                duration: 0.8,
+                y: 30,
+                opacity: 0,
+                stagger: 0.15,
+                ease: "power3.out",
+                delay: 1
+            });
+    
+            // Create floating background elements
+            for(let i = 0; i < 5; i++) {
+                const float = document.createElement('div');
+                float.className = 'floating-bg';
+                float.style.left = Math.random() * 100 + 'vw';
+                float.style.top = Math.random() * 100 + 'vh';
+                float.style.animation = `float ${8 + Math.random() * 8}s infinite ease-in-out`;
+                document.body.appendChild(float);
+            }
+    
+            // Button hover effect
+            const btn = document.querySelector('#room-name-submit');
+            btn.addEventListener('mousemove', (e) => {
+                const rect = btn.getBoundingClientRect();
+                const x = e.clientX - rect.left;
+                const y = e.clientY - rect.top;
+                btn.style.setProperty('--x', x + 'px');
+                btn.style.setProperty('--y', y + 'px');
+            });
+        });
+    
+        // Input validation animation
+        document.querySelector('#room-name-submit').addEventListener('click', function() {
+            if(!document.querySelector('#room-name-input').value) {
+                gsap.to('#room-name-input', {
+                    duration: 0.4,
+                    x: [-5, 5, -5, 5, 0],
+                    ease: 'power1.inOut',
+                    onComplete: () => {
+                        document.querySelector('#room-name-input').focus();
+                    }
+                });
+            }
+        });
+    </script>
+</body>
+</html>

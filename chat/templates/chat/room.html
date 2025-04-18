@@ -1,0 +1,499 @@
+<!-- chat/templates/chat/room.html -->
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8"/>
+    <title>Chat Room</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+</head>
+<body>
+
+
+    <div style="min-height: 300px; min-width: 500px; border: 2px solid ;" id="chat-log" cols="100" rows="20" readonly></div>
+    <input id="chat-message-input" type="text" size="100"><br>
+    <button style="margin-top: 50px;" id="chat-message-submit">Send</button>
+    <button id="quit">Quit</button>
+    <input id="file" type="file" >
+    <button id="record-voice">Enregistrer une voix</button>
+    <button id="record-video">Enregistrer une vidéo</button>
+
+    
+
+
+
+    {{ room_name|json_script:"room-name" }}
+    {{ user_name|json_script:"user-name" }}
+    <script>
+        const roomName = JSON.parse(
+            document.getElementById('room-name').textContent
+        );
+        const userName = JSON.parse(
+            document.getElementById('user-name').textContent
+        );
+        console.log('>> room:', roomName, 'user:', userName);
+
+        const chatSocket = new WebSocket(
+            'ws://'
+            + window.location.host
+            + '/ws/chat/'
+            + roomName
+            + '/'
+            + userName
+            + '/'
+        );
+        
+        document.getElementById('file').addEventListener('change', function(event){
+            const file = event.target.files[0];
+            if(!file) return;
+            const formData = new FormData();
+            formData.append('file',file);
+            
+            fetch('{% url "upload" %}', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.file_url){
+                    chatSocket.send(JSON.stringify({
+                        message:      data.file_url,
+                        message_type: 'file',        // on l’appelle “message_type” pour coller au consumer
+                        filename:     data.file_url.split('/').pop(),
+                        file_type:    file.type,
+                        display_name: data.original_name  // si vous l’avez renvoyé dans votre JSON d’upload
+                    }));
+
+                }
+            })
+            .catch(error => {
+                console.error('Erreur lors de l\'envoie du fichier:', error);
+            });
+        });
+        
+
+        chatSocket.onmessage = function(e) {
+            const data = JSON.parse(e.data);
+            const chatLog = document.querySelector('#chat-log');
+            console.log("🔍 received data:", data);
+
+            const messageDiv = document.createElement('div');
+            messageDiv.classList.add('message');
+            
+            if(data.message_type === 'file') {
+                    messageDiv.classList.add('file-message');
+                    let contentType = data.file_type.startsWith('audio/') ? 'un audio' : data.file_type.startsWith('video/') ? 'une vidéo' : 'un fichier';
+                    let content = `<p>${data.username === userName ? 'Vous avez' : data.username} partagé ${contentType}: ${data.display_name}</p>`;
+                    if (data.file_type.startsWith('audio/')) {
+                        console.log(data.file_type)
+                        content += `<i class="fas fa-volume-up"></i> <audio controls src="/media/${data.filename}"></audio>`;
+                    } else if (data.file_type.startsWith('video/')) {
+                        content += `<i class="fas fa-video"></i> <video controls src="/media/${data.filename}"></video>`;
+                    }if (data.file_type.startsWith('application/')) {
+                        content += `<a href="http://127.0.0.1:8000/media/${data.filename}" download class="file-link">${data.display_name} ↓</a>`;
+                    }
+                    messageDiv.innerHTML = content;
+                    } else if(data.message === "Vient de se déconnecter") {
+                        messageDiv.classList.add('other-message');
+                        messageDiv.innerHTML = `<em>${data.username} ${data.message}</em>`;
+                    } 
+                    else {
+                        console.log(data.file_type);
+                        console.log(data.file_type);
+                        console.log(data.file_type);
+                        const isMine = data.username === userName;
+                        messageDiv.classList.add(isMine ? 'user-message' : 'other-message');
+                        messageDiv.innerHTML = `
+                        <strong>${ isMine ? 'Vous' : data.username }</strong>
+                        <p>${ data.message }</p>
+                        `;
+                    }
+                
+
+                chatLog.appendChild(messageDiv);
+                animateMessage(messageDiv);
+                chatLog.scrollTop = chatLog.scrollHeight;
+        };
+
+
+
+  
+        chatSocket.onclose = function(e) {
+        console.error('Chat socket closed unexpectedly');
+        };
+        
+
+        document.querySelector('#quit').onclick = function(e){
+            console.log('cliquer');
+            chatSocket.send(JSON.stringify({
+                'message': "Vient de se déconnecter"
+            }));
+            chatSocket.close();
+
+            window.location.pathname = '/chat/';
+
+        }
+
+        document.querySelector('#chat-message-input').focus();
+        document.querySelector('#chat-message-input').onkeyup = function(e) {
+            if (e.key === 'Enter') {  // enter, return
+                document.querySelector('#chat-message-submit').click();
+            }
+        };
+
+        document.querySelector('#chat-message-submit').onclick = function(e) {
+            const messageInputDom = document.querySelector('#chat-message-input');
+            const message = messageInputDom.value;
+            chatSocket.send(JSON.stringify({
+                'message': message
+            }));
+            messageInputDom.value = '';
+
+        };
+
+        //SCript pour les audios et vidéos
+
+        // Gestion de l'enregistrement audio et vidéo
+        let mediaRecorder;
+        let recordingStream;
+        let isRecording = false;
+        let currentType = null;
+
+        function startVoiceRecording() {
+            if (isRecording) return;
+            navigator.mediaDevices.getUserMedia({ audio: true })
+                .then(stream => {
+                    recordingStream = stream;
+                    const uniqueId = Date.now() + Math.random().toString(36).substr(2, 9);
+                    const filename = `voice_${uniqueId}.webm`;
+                    startRecording(stream, 'audio/webm', filename);
+                })
+                .catch(error => {
+                    console.error('Erreur d\'accès au micro :', error);
+                });
+        }
+
+        function startVideoRecording() {
+            if (isRecording) return;
+            navigator.mediaDevices.getUserMedia({ video: true, audio: true })
+                .then(stream => {
+                    recordingStream = stream;
+                    const uniqueId = Date.now() + Math.random().toString(36).substr(2, 9);
+                    const filename = `video_${uniqueId}.webm`;
+                    startRecording(stream, 'video/webm', filename);
+                })
+                .catch(error => {
+                    console.error('Erreur d\'accès à la caméra et au micro :', error);
+                });
+        }
+        
+        function startRecording(stream, mimeType, filename) {
+            isRecording = true;
+            currentType = mimeType.startsWith('audio') ? 'audio' : 'video';
+            mediaRecorder = new MediaRecorder(stream, { mimeType });
+            const chunks = [];
+            mediaRecorder.ondataavailable = e => chunks.push(e.data);
+            mediaRecorder.onstop = () => {
+                const blob = new Blob(chunks, { type: mimeType });
+                uploadFile(blob, filename);
+                stream.getTracks().forEach(track => track.stop());
+                isRecording = false;
+                currentType = null;
+                document.querySelector('#record-voice').textContent = 'Enregistrer voice';
+                document.querySelector('#record-video').textContent = 'Enregistrer vidéo';
+            };
+            mediaRecorder.start();
+            if (currentType === 'audio') {
+                document.querySelector('#record-voice').textContent = 'Arrêter l\'enregistrement vocal';
+
+            } else {
+                document.querySelector('#record-video').textContent = 'Arrêter l\'enregistrement vidéo';
+            }
+        }
+
+        function uploadFile(file, display_name) {
+            const formData = new FormData();
+            formData.append('file', file, display_name);
+            fetch('{% url "upload" %}', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.file_url){
+                    chatSocket.send(JSON.stringify({
+                        'message': `Fichier partagé: ${data.file_url}`,
+                         message_type: 'file',
+                        'display_name': data.original_name,
+                        'filename': data.file_url.split('/').pop(),
+                        'file_type': file.type
+                    }));
+                }
+            })
+            .catch(error => {
+                console.error('Erreur lors de l\'envoi du fichier :', error);
+            });
+        }
+
+        document.querySelector('#record-voice').addEventListener('click', () => {
+            if (isRecording && currentType === 'audio') {
+                mediaRecorder.stop();
+            } else if (!isRecording) {
+                startVoiceRecording();
+            }
+        });
+
+        document.querySelector('#record-video').addEventListener('click', () => {
+            if (isRecording && currentType === 'video') {
+                mediaRecorder.stop();
+            } else if (!isRecording) {
+                startVideoRecording();
+            }
+        });
+
+
+
+
+
+    </script>
+    <!-- CSS personnalisé -->
+<style>
+    #record-voice,
+    #record-video,#quit,#chat-message-submit,#file {
+    opacity: 1 !important;
+    }
+
+
+    .user-message,
+    .other-message,
+    .file-message{
+    opacity: 1 !important;
+    }
+    :root {
+        --primary: #6C5CE7;
+        --secondary: #A8A4FF;
+        --background: #1A1A2E;
+        --accent: #E94584;
+    }
+
+    body {
+        margin: 0;
+        padding: 20px;
+        background: linear-gradient(-45deg, #1A1A2E, #16213E, #0F3460);
+        background-size: 400% 400%;
+        animation: gradientBG 15s ease infinite;
+        font-family: 'Segoe UI', sans-serif;
+        height: 100vh;
+        color: white;
+    }
+
+    @keyframes gradientBG {
+        0% { background-position: 0% 50%; }
+        50% { background-position: 100% 50%; }
+        100% { background-position: 0% 50%; }
+    }
+
+    #chat-log {
+        background: rgba(255, 255, 255, 0.05);
+        backdrop-filter: blur(10px);
+        border-radius: 15px;
+        padding: 20px;
+        margin-bottom: 20px;
+        height: 60vh;
+        overflow-y: auto;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    /* Custom Scrollbar */
+    #chat-log::-webkit-scrollbar {
+        width: 8px;
+    }
+
+    #chat-log::-webkit-scrollbar-track {
+        background: rgba(255, 255, 255, 0.05);
+    }
+
+    #chat-log::-webkit-scrollbar-thumb {
+        background: var(--primary);
+        border-radius: 4px;
+    }
+
+    .message {
+        margin: 10px 0;
+        padding: 12px 20px;
+        border-radius: 20px;
+        max-width: 70%;
+        animation: messageAppear 0.3s ease-out;
+        position: relative;
+    }
+
+    .user-message {
+        background: var(--primary);
+        margin-left: auto;
+        color: white;
+    }
+
+    .other-message {
+        background: rgba(255, 255, 255, 0.1);
+        margin-right: auto;
+    }
+
+    .file-message {
+        background: rgba(108, 92, 231, 0.2);
+        border: 1px solid var(--primary);
+        margin-left: auto;
+    }
+
+    @keyframes messageAppear {
+        from {
+            opacity: 0;
+            transform: translateY(20px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    #chat-message-input {
+        width: calc(100% - 120px);
+        padding: 15px 25px;
+        border: none;
+        border-radius: 30px;
+        background: rgba(255, 255, 255, 0.1);
+        color: white;
+        font-size: 16px;
+        margin-right: 10px;
+        transition: all 0.3s ease;
+    }
+
+    #chat-message-input:focus {
+        outline: none;
+        box-shadow: 0 0 15px var(--primary);
+    }
+
+    #chat-message-submit , #record-voice, #record-video{
+        background: var(--primary);
+        color: white;
+        border: none;
+        padding: 15px 30px;
+        border-radius: 30px;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        font-weight: bold;
+        text-transform: uppercase;
+    }
+
+    #chat-message-submit:hover, #record-voice:hover, #record-video:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(108, 92, 231, 0.4);
+    }
+
+    #quit {
+        background: var(--accent);
+        margin-left: 10px;
+        color: white;
+        border: none;
+        padding: 15px 30px;
+        border-radius: 30px;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        font-weight: bold;
+        text-transform: uppercase;
+
+    }
+
+    #quit:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 5px 15px rgba(233, 69, 132, 0.4);
+    }
+
+    .file-link {
+        color: var(--secondary);
+        text-decoration: none;
+        font-weight: bold;
+        display: inline-block;
+        margin-top: 5px;
+        transition: all 0.3s ease;
+    }
+
+    .file-link:hover {
+        color: white;
+        transform: translateX(5px);
+    }
+
+    #file {
+        position: absolute;
+        right: 20px;
+        bottom: 20px;
+        background: rgba(255, 255, 255, 0.1);
+        padding: 10px 20px;
+        border-radius: 20px;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        color: white;
+        font-weight: bold;
+        text-transform: uppercase;
+        border: none;
+        font-size: 16px;
+        
+    }
+    audio, video {
+            width: 100%;
+            max-width: 300px;
+            margin-top: 10px;
+            border-radius: 5px;
+        }
+
+    #file:hover {
+        background: var(--primary);
+        color: white;
+        transform: translateY(-2px);
+        box-shadow: 0 5px 15px rgba(108, 92, 231, 0.4);
+
+    }
+</style>
+
+<!-- Scripts d'animation -->
+<script>
+    // Animation au chargement
+    document.addEventListener('DOMContentLoaded', () => {
+        gsap.from('#chat-log', {duration: 0.8, y: 50, opacity: 0});
+        gsap.from('input, button', {duration: 0.6, y: 30, opacity: 0, stagger: 0.1});
+    });
+
+    // Animation de soumission
+    document.querySelector('#chat-message-submit').addEventListener('click', function() {
+        this.style.transform = 'scale(0.9)';
+        setTimeout(() => this.style.transform = '', 200);
+    });
+
+    // Animation des messages entrants
+    function animateMessage(messageElement) {
+        gsap.from(messageElement, {
+            duration: 0.4,
+            x: messageElement.classList.contains('user-message') ? 50 : -50,
+            opacity: 0,
+            ease: 'power2.out'
+        });
+    }
+
+    // Modification du gestionnaire de messages
+
+
+    // Hover effect pour les messages
+    document.addEventListener('mouseover', (e) => {
+        if(e.target.closest('.message')) {
+            gsap.to(e.target, {duration: 0.2, y: -2, ease: 'power1.out'});
+        }
+    });
+
+    document.addEventListener('mouseout', (e) => {
+        if(e.target.closest('.message')) {
+            gsap.to(e.target, {duration: 0.2, y: 0, ease: 'power1.in'});
+        }
+    });
+</script>
+</body>
+</html>

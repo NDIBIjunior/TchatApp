@@ -23,9 +23,8 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = 'django-insecure-on3)f)wge@g7$ttm56768^u&8863_#r)*tgx#6zxy=x^^$3fb*'
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
-
-ALLOWED_HOSTS = []
+DEBUG = False
+ALLOWED_HOSTS = ['openmind-academy.tech', 'localhost', '127.0.0.1']
 
 
 # Application definition

@@ -1,22 +1,22 @@
-# mysite/asgi.py
+# chatapp/asgi.py
 import os
-
-from channels.routing import ProtocolTypeRouter
+import django
 from django.core.asgi import get_asgi_application
-from channels.auth import AuthMiddlewareStack
+
+# Définir le module de paramètres Django EN PREMIER
+os.environ.setdefault("DJANGO_SETTINGS_MODULE", "chatapp.settings")  # Remplacez "chatapp" par le nom réel de votre projet
+django.setup()  # Initialiser Django explicitement
+
+# Importer les dépendances après l'initialisation
 from channels.routing import ProtocolTypeRouter, URLRouter
-from channels.security.websocket import AllowedHostsOriginValidator
-from chat.routing import websocket_urlpatterns
+from channels.auth import AuthMiddlewareStack
+from chat.routing import websocket_urlpatterns  # Assurez-vous que ce chemin est correct
 
-django_asgi_app = get_asgi_application()
-
-os.environ.setdefault("DJANGO_SETTINGS_MODULE", "chatapp.settings")
-
-application = ProtocolTypeRouter(
-    {
-        "http": django_asgi_app,
-        "websocket": AllowedHostsOriginValidator(
-            AuthMiddlewareStack(URLRouter(websocket_urlpatterns))
-        ),
-    }
-)
+application = ProtocolTypeRouter({
+    "http": get_asgi_application(),
+    "websocket": AuthMiddlewareStack(
+        URLRouter(
+            websocket_urlpatterns
+        )
+    ),
+})

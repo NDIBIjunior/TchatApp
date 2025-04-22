@@ -9,6 +9,9 @@ def index(request):
     # Page de saisie du nom et du salon
     return render(request, "chat/index.html")
 
+def test_ui(request):
+    # Page de test de l'interface utilisateur
+    return render(request, "chat/reserve.html")
 
 def room(request, room_name, user_name):
     # Affiche la salle de chat, transmet le nom de la salle

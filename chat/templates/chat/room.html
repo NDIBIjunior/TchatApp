@@ -132,6 +132,62 @@
                 console.error('Erreur lors de l\'envoie du fichier:', error);
             });
         });
+
+        // Fonction de formatage de date
+        function formatMessageTime(isoString) {
+            const now = new Date();
+            const messageDate = new Date(isoString);
+            const diffSeconds = Math.floor((now - messageDate) / 1000);
+            
+            // Moins d'une minute
+            if (diffSeconds < 60) {
+                return 'à l\'instant';
+            }
+            
+            // Moins de 30 minutes
+            const diffMinutes = Math.floor(diffSeconds / 60);
+            if (diffMinutes < 30) {
+                return `il y a ${diffMinutes} min`;
+            }
+            
+            // Aujourd'hui
+            if (messageDate.toDateString() === now.toDateString()) {
+                return messageDate.toLocaleTimeString('fr-FR', {
+                    hour: '2-digit',
+                    minute: '2-digit'
+                }).replace(':', 'h');
+            }
+            
+            // Hier
+            const yesterday = new Date(now);
+            yesterday.setDate(now.getDate() - 1);
+            if (messageDate.toDateString() === yesterday.toDateString()) {
+                return 'Hier ' + messageDate.toLocaleTimeString('fr-FR', {
+                    hour: '2-digit',
+                    minute: '2-digit'
+                }).replace(':', 'h');
+            }
+            
+            // Plus ancien
+            return messageDate.toLocaleDateString('fr-FR', {
+                day: '2-digit',
+                month: 'short',
+                year: 'numeric'
+            });
+        }
+
+        function startTimeUpdater() {
+            setInterval(() => {
+                document.querySelectorAll('.message-time').forEach(element => {
+                    const isoString = element.dataset.timestamp;
+                    element.textContent = formatMessageTime(isoString);
+                });
+            }, 60000); // Mise à jour toutes les minutes
+        }
+
+        // Appeler au chargement de la page
+        document.addEventListener('DOMContentLoaded', startTimeUpdater);
+
         
 
         chatSocket.onmessage = function(e) {
@@ -143,61 +199,88 @@
             messageDiv.classList.add('message');
 
           
-            
+            if (data.message && data.message.endsWith("est en train d'écrire...")) {
+                if(data.username !== userName) { // Ne pas afficher pour soi-même
+                    const typingDiv = document.querySelector('#typing-indicator');
+                    typingDiv.style.opacity = '1';
+                    typingDiv.innerHTML = `<em>${data.message}</em>`;
+                    setTimeout(() => {
+                        typingDiv.style.opacity = '0';
+                        typingDiv.innerHTML = '';
+                    }, 3000);
+                }
+                return; // Sortie immédiate
+            }
+
             if (data.type === 'message_history') {
                 data.messages.forEach(message => {
-                    console.log("🔍 message:", message);
                     const messageDiv = document.createElement('div');
                     messageDiv.classList.add('message');
-                    const isMine = message.username === userName;              
-                    messageDiv.classList.add(isMine ? 'user-message' : 'other-message');
+                    const isMine = message.username === userName;
+                    
                     messageDiv.innerHTML = `
-                    <strong>${ isMine ? 'Vous' : message.username }</strong>
-                    <p>${ message.content }</p>
+                        <div class="message-header">
+                            <strong>${isMine ? 'Vous' : message.username}</strong>
+                        </div>
+                        <p>${message.content}</p> <br/>
+                        <span class="message-time" data-timestamp="${message.timestamp}">
+                            ${formatMessageTime(message.timestamp)}
+                        </span>
                     `;
-                    chatLog.appendChild(messageDiv);
 
+                    messageDiv.classList.add(isMine ? 'user-message' : 'other-message');
+                    chatLog.appendChild(messageDiv);
                 });
-                
             }
-            if (data.message.endsWith("est en train d'écrire...") && data.username !== userName) {
-                const typingDiv = document.querySelector('#typing-indicator');
-                typingDiv.className = 'other-message';
-                typingDiv.innerHTML = `<em>${data.message}</em>`;
-                // Suppression après 3 s
-                setTimeout(() => typingDiv.innerHTML = '', 4000);
-                return;
-            }
+
             
             if(data.message_type === 'file') {
-                    messageDiv.classList.add('file-message');
+                const now = new Date();
                     let contentType = data.file_type.startsWith('audio/') ? 'un audio' : data.file_type.startsWith('video/') ? 'une vidéo' : 'un fichier';
                     let content = `<p> <strong>${data.username === userName ? 'Vous ' : data.username}</strong>  </p>`;
                     if (data.file_type.startsWith('audio/')) {
                         const isMine = data.username === userName;
-                        messageDiv.classList.add(isMine ? 'user-message' : 'other-message-file');
-                        content += `<i class="fas fa-volume-up"></i> <audio controls src="/media/${data.filename}"></audio>`;
+                        messageDiv.classList.add(isMine ? 'user-message' : 'other-message');
+                        content += `<i class="fas fa-volume-up"></i> <audio controls src="/media/${data.filename}"></audio>
+                         <span class="message-time" data-timestamp="${now}">
+                            ${formatMessageTime(now)}
+                        </span>`;
                     } else if (data.file_type.startsWith('video/')) {
                         const isMine = data.username === userName;
-                        messageDiv.classList.add(isMine ? 'user-message' : 'other-message-file');
+                        messageDiv.classList.add(isMine ? 'user-message' : 'other-message');
                         
-                        content += `<i class="fas fa-video"></i> <video controls src="/media/${data.filename}"></video>`;
+                        content += `<i class="fas fa-video"></i> <video controls src="/media/${data.filename}"></video>
+                         <span class="message-time" data-timestamp="${now}">
+                            ${formatMessageTime(now)}
+                        </span>`;
                     }if (data.file_type.startsWith('application/')) {
                         const isMine = data.username === userName;
-                        messageDiv.classList.add(isMine ? 'user-message' : 'other-message-file');
-                        content += `<a href="http://127.0.0.1:8000/media/${data.filename}" download class="file-link">${data.display_name} ↓</a>`;
+                        messageDiv.classList.add(isMine ? 'user-message' : 'other-message');
+                        content += `<a href="http://127.0.0.1:8000/media/${data.filename}" download class="file-link">${data.display_name} ↓</a>
+                        <span class="message-time" data-timestamp="${now}">
+                            ${formatMessageTime(now)}
+                        </span>`;
                     }
                     messageDiv.innerHTML = content;
                     } else if(data.message === "Vient de se déconnecter") {
                         messageDiv.classList.add('other-message');
-                        messageDiv.innerHTML = `<em>${data.username} ${data.message}</em>`;
+                        messageDiv.innerHTML = `<em>${data.username} ${data.message}</em> 
+                         <span class="message-time" data-timestamp="${now}">
+                            ${formatMessageTime(now)}
+                        </span>`;
                     } 
                     else if(!data.message.endsWith("est en train d'écrire...") ) {
+                        
                         const isMine = data.username === userName;
                         messageDiv.classList.add(isMine ? 'user-message' : 'other-message');
                         messageDiv.innerHTML = `
-                        <strong>${ isMine ? 'Vous' : data.username }</strong>
-                        <p>${ data.message }</p>
+                        <div class="message-header">
+                            <strong>${isMine ? 'Vous' : data.username}</strong>
+                        </div>
+                        <p>${data.message}</p> <br/>
+                        <span class="message-time" data-timestamp="${now}">
+                            ${formatMessageTime(now)}
+                        </span>
                         `;
                     }
                 
@@ -223,7 +306,7 @@
         document.querySelector('#quit').onclick = function(e){
             console.log('cliquer');
             chatSocket.send(JSON.stringify({
-                'message': "Vient de se déconnecter"
+                'message': "vient de se déconnecter"
             }));
             chatSocket.close();
 

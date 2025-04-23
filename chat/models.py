@@ -1,4 +1,5 @@
 from django.db import models
+from django.utils import timezone
 
 # Create your models here.
 
@@ -27,6 +28,9 @@ class Message(models.Model):
     room = models.ForeignKey(Room, on_delete=models.CASCADE, related_name='messages')
     content = models.TextField()
     timestamp = models.DateTimeField(auto_now_add=True)
+    file_url      = models.CharField(max_length=500, blank=True)
+    file_name     = models.CharField(max_length=255, blank=True)
+    file_type     = models.CharField(max_length=100, blank=True)
 
     def __str__(self):
         return f"{self.sender} to {self.recipient}: {self.content[:20]}..."  # Display first 20 characters of content
@@ -39,9 +43,14 @@ class Message(models.Model):
         return {
             'username': self.sender,
             'content': self.content,
-            'timestamp': self.timestamp.isoformat()
+            'timestamp': self.timestamp.isoformat(),
+            'local_time': timezone.localtime(self.timestamp).isoformat()  # Garder le fuseau horaire
         }
 
+    def get_local_time(self):
+    # Adapte le fuseau horaire si nécessaire
+        local_time = timezone.localtime(self.timestamp)
+        return local_time.strftime("%d/%m/%Y %H:%M")
 
     def get_sender(self):
         # Return the sender of the message

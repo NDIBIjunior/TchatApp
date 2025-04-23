@@ -5,7 +5,7 @@ from channels.generic.websocket import AsyncWebsocketConsumer
 
 def get_room_and_messages(room_name):
     room = Room.objects.get(name=room_name)
-    messages = Message.objects.filter(room=room).order_by('timestamp')[:50]
+    messages = Message.objects.filter(room=room).order_by('timestamp')
     return room, list(messages)
 get_room_and_messages_async = database_sync_to_async(get_room_and_messages)
 
@@ -65,7 +65,8 @@ class ChatConsumer(AsyncWebsocketConsumer):
         print(f"Received message: {message} from {self.user_name} in room {self.room_name}")
 
         # Sauvegarder le message dans la base de données
-        await save_message_async(self.room_name, self.user_name, message)
+        if message_type == 'text' and not message.endswith("est en train d'écrire..."):
+            await save_message_async(self.room_name, self.user_name, message)
 
         # Send message to room group, en ajoutant le nom de l'expéditeur
         await self.channel_layer.group_send(

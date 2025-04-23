@@ -395,40 +395,6 @@ align-items: center;
 }
 
 
-.message-time {
-    font-size: 0.75rem;
-    color: rgba(255,255,255,0.6);
-    margin-left: 10px;
-    float: right;
-}
 
-.user-message .message-time {
-    color: rgba(255,255,255,0.8);
-}
-
-/* Pour les écrans mobiles */
-@media (max-width: 768px) {
-    .message-time {
-        font-size: 0.65rem;
-    }
-}
-
-.message-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 5px;
-}
-
-.message-time {
-    font-size: 0.75rem;
-    color: rgba(255,255,255,0.6);
-    margin-left: 10px;
-    white-space: nowrap;
-}
-
-.user-message .message-time {
-    color: rgba(255,255,255,0.8);
-}
 
 

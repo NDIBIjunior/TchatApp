@@ -52,6 +52,38 @@
         }
     });
 </script>
+<style>
+        .message-time {
+        font-size: 0.75rem;
+        color: rgba(255,255,255,0.6);
+        margin-left: 10px;
+        float: right;
+    }
+
+    .user-message .message-time {
+        color: rgba(255,255,255,0.8);
+    }
+
+    /* Pour les écrans mobiles */
+    @media (max-width: 768px) {
+        .message-time {
+            font-size: 0.65rem;
+        }
+    }
+
+    .message-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 5px;
+    }
+
+
+
+    .user-message .message-time {
+        color: rgba(255,255,255,0.8);
+    }
+</style>
 
 </head>
 <body style="  background-image: url('{% static "assets/img/Untitled.jpeg" %}');>

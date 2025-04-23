@@ -41,10 +41,12 @@ class Message(models.Model):
 
     def to_dict(self):
         return {
-            'username': self.sender,
-            'content': self.content,
+            'username':  self.sender,
+            'content':   self.content,
             'timestamp': self.timestamp.isoformat(),
-            'local_time': timezone.localtime(self.timestamp).isoformat()  # Garder le fuseau horaire
+            'file_url':  self.file_url,
+            'file_name': self.file_name,
+            'file_type': self.file_type,
         }
 
     def get_local_time(self):

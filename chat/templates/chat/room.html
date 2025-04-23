@@ -65,7 +65,7 @@
         </h3>
     </div>
     
-    <div style="border: 2px solid ; " id="chat-log" cols="100" rows="20" readonly></div>
+    <div style="border: 2px solid;" id="chat-log" cols="100" rows="20" readonly></div>
     <div id="typing-indicator" style="padding: 8px 16px; color: #ddd; font-style: italic; height: 1.2em; height: 50px;"></div>
 
     <input hidden id="file" type="file" >
@@ -147,7 +147,7 @@
             // Moins de 30 minutes
             const diffMinutes = Math.floor(diffSeconds / 60);
             if (diffMinutes < 30) {
-                return `il y a ${diffMinutes} min`;
+                return `il y'a ${diffMinutes} min`;
             }
             
             // Aujourd'hui
@@ -216,22 +216,60 @@
                 data.messages.forEach(message => {
                     const messageDiv = document.createElement('div');
                     messageDiv.classList.add('message');
-                    const isMine = message.username === userName;
-                    
-                    messageDiv.innerHTML = `
-                        <div class="message-header">
-                            <strong>${isMine ? 'Vous' : message.username}</strong>
-                        </div>
-                        <p>${message.content}</p> <br/>
-                        <span class="message-time" data-timestamp="${message.timestamp}">
-                            ${formatMessageTime(message.timestamp)}
-                        </span>
-                    `;
 
-                    messageDiv.classList.add(isMine ? 'user-message' : 'other-message');
+                    // Si c'est un fichier partagé
+                    if (message.file_url) {
+                        const isMine = message.username === userName;
+                        messageDiv.classList.add(isMine ? 'user-message' : 'other-message');
+
+                        // On récupère le type MIME pour décider audio/vidéo/autre
+                        const mime = message.file_type || '';
+                        let mediaHTML = '';
+                        if (mime.startsWith('audio/')) {
+                            mediaHTML = `<i class="fas fa-volume-up"></i>
+                                        <audio controls src="${message.file_url}"></audio>`;
+                        } else if (mime.startsWith('video/')) {
+                            mediaHTML = `<i class="fas fa-video"></i>
+                                        <video controls src="${message.file_url}"></video>`;
+                        } else {
+                            mediaHTML = `<a href="${message.file_url}" download class="file-link">
+                                        ${message.file_name || message.display_name} ↓
+                                        </a>`;
+                        }
+
+                        // On affiche l’entête + média + timestamp
+                        messageDiv.innerHTML = `
+                            <div class="message-header">
+                            <strong>${ isMine ? 'Vous' : message.username }</strong>
+                            </div>
+                            <div class="message-content">
+                            ${mediaHTML}
+                            </div>
+                            <span class="message-time" data-timestamp="${message.timestamp}">
+                            ${formatMessageTime(message.timestamp)}
+                            </span>
+                        `;
+                    }
+                    // Sinon, c'est un message texte classique
+                    else {
+                        const isMine = message.username === userName;
+                        messageDiv.classList.add(isMine ? 'user-message' : 'other-message');
+                        messageDiv.innerHTML = `
+                            <div class="message-header">
+                            <strong>${ isMine ? 'Vous' : message.username }</strong>
+                            </div>
+                            <p>${ message.content }</p>
+                            <span class="message-time" data-timestamp="${message.timestamp}">
+                            ${formatMessageTime(message.timestamp)}
+                            </span>
+                        `;
+                    }
+
                     chatLog.appendChild(messageDiv);
                 });
             }
+
+
 
             
             if(data.message_type === 'file') {
@@ -414,7 +452,7 @@
             .then(data => {
                 if (data.file_url){
                     chatSocket.send(JSON.stringify({
-                        'message': `Fichier partagé: ${data.file_url}`,
+                        'message': `${data.file_url}`,
                          message_type: 'file',
                         'display_name': data.original_name,
                         'filename': data.file_url.split('/').pop(),

@@ -9,9 +9,17 @@ def get_room_and_messages(room_name):
     return room, list(messages)
 get_room_and_messages_async = database_sync_to_async(get_room_and_messages)
 
-def save_message(room_name, sender, content):
+def save_message(room_name, sender, content,
+                 file_url=None, file_name=None, file_type=None):
     room = Room.objects.get(name=room_name)
-    return Message.objects.create(room=room, sender=sender, content=content)
+    return Message.objects.create(
+        room=room,
+        sender=sender,
+        content=content if file_url is None else "",
+        file_url=file_url or "",
+        file_name=file_name or "",
+        file_type=file_type or ""
+    )
 save_message_async = database_sync_to_async(save_message)
 
 class ChatConsumer(AsyncWebsocketConsumer):
@@ -63,6 +71,19 @@ class ChatConsumer(AsyncWebsocketConsumer):
         file_type    = data.get('file_type', '')
         display_name = data.get('display_name', '')
         print(f"Received message: {message} from {self.user_name} in room {self.room_name}")
+
+        # on récupère tous les champs du JSON text_data
+        if message_type == 'file':
+            print('fichier *******************************************\n\n')
+            await save_message_async(
+                self.room_name, self.user_name, "",
+                file_url      = data['message'],
+                file_name     = data['filename'],
+                file_type     = data['file_type']
+            )
+        else:
+            await save_message_async(self.room_name, self.user_name, data['message'])
+
 
         # Sauvegarder le message dans la base de données
         if message_type == 'text' and not message.endswith("est en train d'écrire..."):

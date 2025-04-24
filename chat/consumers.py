@@ -73,21 +73,18 @@ class ChatConsumer(AsyncWebsocketConsumer):
         print(f"Received message: {message} from {self.user_name} in room {self.room_name}")
 
         # on récupère tous les champs du JSON text_data
+        # Sauvegarder le message dans la base de données
         if message_type == 'file':
-            print('fichier *******************************************\n\n')
             await save_message_async(
                 self.room_name, self.user_name, "",
                 file_url      = data['message'],
                 file_name     = data['filename'],
                 file_type     = data['file_type']
             )
-        else:
-            await save_message_async(self.room_name, self.user_name, data['message'])
-
-
-        # Sauvegarder le message dans la base de données
-        if message_type == 'text' and not message.endswith("est en train d'écrire..."):
+        elif message_type != "text" or not message.endswith("est en train d'écrire..."):
             await save_message_async(self.room_name, self.user_name, message)
+
+
 
         # Send message to room group, en ajoutant le nom de l'expéditeur
         await self.channel_layer.group_send(

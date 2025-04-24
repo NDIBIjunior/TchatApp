@@ -227,142 +227,155 @@
             const chatLog = document.querySelector('#chat-log');
             console.log("🔍 received data:", data);
 
-            const messageDiv = document.createElement('div');
-            messageDiv.classList.add('message');
-
-          
+            // 1) Typing indicator
             if (data.message && data.message.endsWith("est en train d'écrire...")) {
-                if(data.username !== userName) { // Ne pas afficher pour soi-même
-                    const typingDiv = document.querySelector('#typing-indicator');
-                    typingDiv.style.opacity = '1';
-                    typingDiv.innerHTML = `<em>${data.message}</em>`;
-                    setTimeout(() => {
-                        typingDiv.style.opacity = '0';
-                        typingDiv.innerHTML = '';
-                    }, 3000);
+                if (data.username !== userName) {
+                const typingDiv = document.querySelector('#typing-indicator');
+                typingDiv.style.opacity = '1';
+                typingDiv.innerHTML = `<em>${data.message}</em>`;
+                setTimeout(() => {
+                    typingDiv.style.opacity = '0';
+                    typingDiv.innerHTML = '';
+                }, 3000);
                 }
-                return; // Sortie immédiate
+                return;  // on sort, pas de rendu de message
             }
 
+            // 2) Historique des messages
             if (data.type === 'message_history') {
                 data.messages.forEach(message => {
-                    const messageDiv = document.createElement('div');
-                    messageDiv.classList.add('message');
+                const msgDiv = document.createElement('div');
+                const isMine = (message.username === userName);
+                msgDiv.classList.add('message', isMine ? 'user-message' : 'other-message');
 
-                    // Si c'est un fichier partagé
-                    if (message.file_url) {
-                        const isMine = message.username === userName;
-                        messageDiv.classList.add(isMine ? 'user-message' : 'other-message');
-
-                        // On récupère le type MIME pour décider audio/vidéo/autre
-                        const mime = message.file_type || '';
-                        let mediaHTML = '';
-                        if (mime.startsWith('audio/')) {
-                            mediaHTML = `<i class="fas fa-volume-up"></i>
-                                        <audio controls src="${message.file_url}"></audio>`;
-                        } else if (mime.startsWith('video/')) {
-                            mediaHTML = `<i class="fas fa-video"></i>
-                                        <video controls src="${message.file_url}"></video>`;
-                        } else {
-                            mediaHTML = `<a href="${message.file_url}" download class="file-link">
+                if (message.file_url) {
+                    // fichier dans l’historique
+                    const mime = message.file_type || '';
+                    let mediaHTML;
+                    if (mime.startsWith('audio/')) {
+                        mediaHTML = `<i class="fas fa-volume-up"></i>
+                                    <audio controls src="${message.file_url}"></audio>`;
+                    } else if (mime.startsWith('video/')) {
+                         mediaHTML = `<i class="fas fa-video"></i>
+                        <video controls src="${message.file_url}"></video>`;
+                    } else {
+                        mediaHTML = `<a href="${message.file_url}" download class="file-link">
                                         ${message.file_name || message.display_name} ↓
-                                        </a>`;
-                        }
-
-                        // On affiche l’entête + média + timestamp
-                        messageDiv.innerHTML = `
-                            <div class="message-header">
-                            <strong>${ isMine ? 'Vous' : message.username }</strong>
-                            </div>
-                            <div class="message-content">
-                            ${mediaHTML}
-                            </div>
-                            <span class="message-time" data-timestamp="${message.timestamp}">
-                            ${formatMessageTime(message.timestamp)}
-                            </span>
-                        `;
+                                    </a>`;
                     }
-                    // Sinon, c'est un message texte classique
-                    else {
-                        const isMine = message.username === userName;
-                        messageDiv.classList.add(isMine ? 'user-message' : 'other-message');
-                        messageDiv.innerHTML = `
-                            <div class="message-header">
-                            <strong>${ isMine ? 'Vous' : message.username }</strong>
-                            </div>
-                            <p>${ message.content }</p>
-                            <span class="message-time" data-timestamp="${message.timestamp}">
-                            ${formatMessageTime(message.timestamp)}
-                            </span>
-                        `;
-                    }
-
-                    chatLog.appendChild(messageDiv);
-                });
-            }
-
-
-
-            
-            if(data.message_type === 'file') {
-                const now = new Date();
-                    let contentType = data.file_type.startsWith('audio/') ? 'un audio' : data.file_type.startsWith('video/') ? 'une vidéo' : 'un fichier';
-                    let content = `<p> <strong>${data.username === userName ? 'Vous ' : data.username}</strong>  </p>`;
-                    if (data.file_type.startsWith('audio/')) {
-                        const isMine = data.username === userName;
-                        messageDiv.classList.add(isMine ? 'user-message' : 'other-message');
-                        content += `<i class="fas fa-volume-up"></i> <audio controls src="/media/${data.filename}"></audio>
-                         <span class="message-time" data-timestamp="${now}">
-                            ${formatMessageTime(now)}
-                        </span>`;
-                    } else if (data.file_type.startsWith('video/')) {
-                        const isMine = data.username === userName;
-                        messageDiv.classList.add(isMine ? 'user-message' : 'other-message');
-                        
-                        content += `<i class="fas fa-video"></i> <video controls src="/media/${data.filename}"></video>
-                         <span class="message-time" data-timestamp="${now}">
-                            ${formatMessageTime(now)}
-                        </span>`;
-                    }if (data.file_type.startsWith('application/')) {
-                        const isMine = data.username === userName;
-                        messageDiv.classList.add(isMine ? 'user-message' : 'other-message');
-                        content += `<a href="http://127.0.0.1:8000/media/${data.filename}" download class="file-link">${data.display_name} ↓</a>
-                        <span class="message-time" data-timestamp="${now}">
-                            ${formatMessageTime(now)}
-                        </span>`;
-                    }
-                    messageDiv.innerHTML = content;
-                    } else if(data.message === "Vient de se déconnecter") {
-                        messageDiv.classList.add('other-message');
-                        messageDiv.innerHTML = `<em>${data.username} ${data.message}</em> 
-                         <span class="message-time" data-timestamp="${now}">
-                            ${formatMessageTime(now)}
-                        </span>`;
-                    } 
-                    else if(!data.message.endsWith("est en train d'écrire...") ) {
-                        
-                        const isMine = data.username === userName;
-                        messageDiv.classList.add(isMine ? 'user-message' : 'other-message');
-                        messageDiv.innerHTML = `
+                    msgDiv.innerHTML = `
                         <div class="message-header">
-                            <strong>${isMine ? 'Vous' : data.username}</strong>
+                            <strong>${ isMine ? 'Vous' : message.username }</strong>
                         </div>
-                        <p>${data.message}</p> <br/>
-                        <span class="message-time" data-timestamp="${now}">
-                            ${formatMessageTime(now)}
+                        <div class="message-content">${mediaHTML}</div>
+                        <span class="message-time" data-timestamp="${message.timestamp}">
+                            ${formatMessageTime(message.timestamp)}
                         </span>
-                        `;
-                    }
-                
-
-                const content = messageDiv.textContent.trim();  // récupère tout le texte et enlève les espaces autour
-
-                if (content !== '') {
-                chatLog.appendChild(messageDiv);
+                    `;
+                } else {
+                    // message texte dans l’historique
+                    msgDiv.innerHTML = `
+                        <div class="message-header">
+                            <strong>${ isMine ? 'Vous' : message.username }</strong>
+                        </div>
+                        <p>${ message.content }</p>
+                        <span class="message-time" data-timestamp="${message.timestamp}">
+                            ${formatMessageTime(message.timestamp)}
+                        </span>
+                    `;
                 }
 
-                animateMessage(messageDiv);
+                chatLog.appendChild(msgDiv);
+                animateMessage(msgDiv);
+                });
                 chatLog.scrollTop = chatLog.scrollHeight;
+                return;  // on a déjà rendu l’historique, on stoppe
+            }
+
+            // 3) Fichier envoyé en temps réel
+            if (data.message_type === 'file') {
+                const msgDiv = document.createElement('div');
+                const isMine = (data.username === userName);
+                const mime   = data.file_type || '';
+                msgDiv.classList.add('message', isMine ? 'user-message' : 'other-message');
+
+                let mediaHTML;
+                if (mime.startsWith('audio/')) {
+                    mediaHTML = `<i class="fas fa-volume-up"></i>
+                                 <audio controls src="${data.message}"></audio>`;
+                } else if (mime.startsWith('video/')) {
+                    mediaHTML = `<i class="fas fa-video"></i>
+                                <video controls src="${data.message}"></video>`;
+                } else {
+                    mediaHTML = `<a href="${data.message}" download class="file-link">
+                                   ${data.display_name} ↓
+                                 </a>`;
+                }
+                // Affichage du message
+                const now = new Date();
+                msgDiv.innerHTML = `
+                    <div class="message-header">
+                        <strong>${ isMine ? 'Vous' : data.username }</strong>
+                    </div>
+                    <div class="message-content">${mediaHTML}</div>
+                    <span class="message-time" data-timestamp="${now.toISOString()}">
+                        ${formatMessageTime(now)}
+                    </span>
+                `;
+
+                chatLog.appendChild(msgDiv);
+                animateMessage(msgDiv);
+                chatLog.scrollTop = chatLog.scrollHeight;
+
+                // Notification sonore si le message n'est pas de l'utilisateur
+                if (data.username !== userName) {
+                    const audio = new Audio('{% static "assets/sounds/notification.wav" %}');
+                    audio.play();
+                }
+                return;
+            }
+
+            // 4) Notification de déconnexion
+            if (data.message === "Vient de se déconnecter") {
+                const msgDiv = document.createElement('div');
+                msgDiv.classList.add('message', 'other-message');
+                const now = new Date();
+                msgDiv.innerHTML = `
+                <em>${data.username} ${data.message}</em>
+                <span class="message-time" data-timestamp="${now.toISOString()}">
+                    ${formatMessageTime(now)}
+                </span>
+                `;
+                chatLog.appendChild(msgDiv);
+                animateMessage(msgDiv);
+                chatLog.scrollTop = chatLog.scrollHeight;
+                return;
+            }
+
+            // 5) Message texte classique
+            {
+                const msgDiv = document.createElement('div');
+                const isMine = (data.username === userName);
+                msgDiv.classList.add('message', isMine ? 'user-message' : 'other-message');
+                const now = new Date();
+                msgDiv.innerHTML = `
+                <div class="message-header">
+                    <strong>${ isMine ? 'Vous' : data.username }</strong>
+                </div>
+                <p>${ data.message }</p>
+                <span class="message-time" data-timestamp="${now.toISOString()}">
+                    ${formatMessageTime(now)}
+                </span>
+                `;
+                chatLog.appendChild(msgDiv);
+                animateMessage(msgDiv);
+                chatLog.scrollTop = chatLog.scrollHeight;
+                // Notification sonore si le message n'est pas de l'utilisateur
+                if (data.username !== userName) {
+                    const audio = new Audio('{% static "assets/sounds/notification.wav" %}');
+                    audio.play();
+                }
+            }
         };
 
 
@@ -375,6 +388,8 @@
 
         document.querySelector('#quit').onclick = function(e){
             console.log('cliquer');
+                const audio = new Audio('{% static "assets/sounds/deconnexion.wav" %}');
+                audio.play();
             chatSocket.send(JSON.stringify({
                 'message': "vient de se déconnecter"
             }));

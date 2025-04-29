@@ -2,6 +2,7 @@ from channels.db import database_sync_to_async
 from .models import Room, Message
 import json
 from channels.generic.websocket import AsyncWebsocketConsumer
+from django.core.cache import cache
 
 def get_room_and_messages(room_name):
     room = Room.objects.get(name=room_name)
@@ -23,7 +24,6 @@ def save_message(room_name, sender, content,
 save_message_async = database_sync_to_async(save_message)
 
 class ChatConsumer(AsyncWebsocketConsumer):
-
     async def connect(self):
         
         # Extraction des paramètres nommés
@@ -33,12 +33,34 @@ class ChatConsumer(AsyncWebsocketConsumer):
         # Groupe Channels pour la diffusion
         self.room_group_name = f"chat_{self.room_name}"
 
+        room_key = f'active_users_{self.room_group_name}'
+        current_users = cache.get(room_key, set())
+        if self.user_name:
+            current_users.add(self.user_name)
+            cache.set(room_key, current_users)
+
         # Join room group
         await self.channel_layer.group_add(
             self.room_group_name,
             self.channel_name
         )
         await self.accept()
+
+        await self.channel_layer.group_send(
+            self.room_group_name,
+            {
+                'type': 'active_users',
+                'users': list(current_users)
+            }
+        )
+
+        
+        await self.send(text_data=json.dumps({
+            'type': 'room_name',
+            'room_name': self.room_name,
+            'user_name': self.user_name
+        }))
+
 
         # Récupérer la salle et les messages de manière asynchrone
         try:
@@ -54,14 +76,35 @@ class ChatConsumer(AsyncWebsocketConsumer):
             pass
 
 
+    async def active_users(self, event):
+        # Envoie la liste mise à jour à tous les clients
+        await self.send(text_data=json.dumps({
+            'type': 'active_users',
+            'users': event['users']
+        }))
 
     async def disconnect(self, close_code):
-        # Leave room group
+        room_key = f'active_users_{self.room_group_name}'
+        current_users = cache.get(room_key, set())
+        
+        if self.user_name in current_users:
+            current_users.remove(self.user_name)  # Correction ici
+            cache.set(room_key, current_users)
+        
+        # Envoi de la liste mise à jour à TOUS les clients
+        await self.channel_layer.group_send(
+            self.room_group_name,
+            {
+                'type': 'active_users',
+                'users': list(current_users)
+            }
+        )
+        
         await self.channel_layer.group_discard(self.room_group_name, self.channel_name)
 
+
+
     # Receive message from WebSocket
-
-
     async def receive(self, text_data):
         
         data    = json.loads(text_data)
@@ -109,3 +152,19 @@ class ChatConsumer(AsyncWebsocketConsumer):
             'file_type':    event['file_type'],
             'display_name': event['display_name'],
         }))
+
+    async def update_presence(self):
+        """
+        Handler pour les mises à jour de présence
+        Doit correspondre au type 'active_users' envoyé dans group_send
+        """
+        room_key = f'active_users_{self.room_group_name}'
+        current_users = cache.get(room_key, set())
+        
+        print("**********\n\n\n\nVoici la liste : ************* !", current_users)
+        # Envoyer la liste des utilisateurs actifs à tous les clients
+
+        await self.send(text_data=json.dumps({
+                'type': 'active_users',
+                'users': list(current_users)
+            }))

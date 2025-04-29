@@ -86,7 +86,7 @@
 </style>
 
 </head>
-<body style="  background-image: url('{% static "assets/img/Untitled.jpeg" %}');>
+<body>
 
    <!-- Modifiez le HTML comme ceci -->
     <div class="header">
@@ -95,6 +95,12 @@
             <span class="username">{{ user_name }}</span> : 
             <span class="room-name">{{ room_name }}</span>
         </h3>
+        <div id="active-users">
+            <h3>En ligne</h3>
+            <div id="active-users-list" style="display: flex; overflow-x: auto; white-space: nowrap; padding: 10px;">
+                <!-- Les utilisateurs connectés seront affichés ici -->
+            </div>
+        </div>
     </div>
     
     <div style="border: 2px solid;" id="chat-log" cols="100" rows="20" readonly></div>
@@ -218,12 +224,30 @@
         // Appeler au chargement de la page
         document.addEventListener('DOMContentLoaded', startTimeUpdater);
 
-        
+        const activeUsersList = document.getElementById('active-users-list');
+        let isFirstConnection = true;
+        function updateActiveUsers(users) {
+            activeUsersList.innerHTML = users
+            .filter(user => user !== userName) // Exclure l'utilisateur actuel
+            .map(user => `
+                <span style="margin: 6px;" class="user-item">
+                <span class="online-dot"></span>
+                ${user}
+                </span>
+            `).join('');
+        }
 
         chatSocket.onmessage = function(e) {
             const data = JSON.parse(e.data);
             const chatLog = document.querySelector('#chat-log');
             console.log("🔍 received data:", data);
+
+
+            if(data.type === 'active_users') {
+                console.log('active_users:', data);
+                    updateActiveUsers(data.users);
+                    return;
+            }
 
             // 1) Typing indicator
             if (data.message && data.message.endsWith("est en train d'écrire...")) {
@@ -384,18 +408,22 @@
         };
         
 
-        document.querySelector('#quit').onclick = function(e){
-            console.log('cliquer');
-                const audio = new Audio('{% static "assets/sounds/deconnexion.wav" %}');
-                audio.play();
+        document.querySelector('#quit').onclick = async function(e) {
+            const audio = new Audio('{% static "assets/sounds/deconnexion.wav" %}');
+            audio.play();
+            
+            // Envoyer la notification avant de fermer
             chatSocket.send(JSON.stringify({
-                'message': "vient de se déconnecter"
+                'message': "vient de se déconnecter",
+                'message_type': "notification"
             }));
+            
+            // Petite pause pour laisser le message partir
+            await new Promise(resolve => setTimeout(resolve, 100));
+            
             chatSocket.close();
-
             window.location.pathname = '';
-
-        }
+        };
 
         const inputField = document.querySelector('#chat-message-input');
         inputField.addEventListener('keydown', (e) => {

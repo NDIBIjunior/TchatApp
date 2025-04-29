@@ -88,43 +88,97 @@
 </head>
 <body>
 
-   <!-- Modifiez le HTML comme ceci -->
-    <div class="header">
-        <h3 class="chat-title">
-            <i class="fas fa-user"></i> 
-            <span class="username">{{ user_name }}</span> : 
-            <span class="room-name">{{ room_name }}</span>
-        </h3>
-        <div id="active-users">
-            <h3>En ligne</h3>
-            <div id="active-users-list" style="display: flex; overflow-x: auto; white-space: nowrap; padding: 10px;">
-                <!-- Les utilisateurs connectés seront affichés ici -->
+
+    <div class="chat-container">
+        <div class="sidebar-overlay"></div>
+    
+        <!-- Menu mobile -->
+        <button id="menu-toggle" class="mobile-only">
+            <i class="fas fa-bars"></i>
+        </button>
+
+        <!-- Sidebar -->
+        <div class="sidebar">
+            <div class="sidebar-header">
+                <h2>
+                    <i class="fas fa-comments"></i>
+                    Discussions
+                </h2>
+            </div>
+            
+            <div class="sidebar-content">
+                <!-- Section Utilisateurs Connectés -->
+                <div class="sidebar-section">
+                    <h3><i class="fas fa-users"></i> En ligne</h3>
+                    <div id="active-users-list" class="user-list"></div>
+                </div>
+
+                <!-- Section Historique -->
+                <div class="sidebar-section">
+                    <h3><i class="fas fa-history"></i> Récent</h3>
+                    <div class="room-list">
+                        <div class="room-item">Général</div>
+                        <div class="room-item">Projets</div>
+                        <div class="room-item">Support</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Zone de discussion principale -->
+        <div class="main-content">
+            <div class="header">
+                <h3 class="chat-title">
+                    <i class="fas fa-comments"></i> 
+                    <span id="current-chat-title">{{ room_name }}</span>
+                </h3>
+            </div>
+            
+            <div style="border: 1px solid;" id="chat-log" cols="100" rows="20" readonly></div>
+            <div id="typing-indicator" style="padding: 8px 16px; color: #ddd; font-style: italic; height: 1.2em;"></div>
+            
+            <!-- Le reste de votre formulaire d'envoi existant -->
+            <div class="message-buttons">
+                <input style="background: var(--primary);" id="chat-message-input" type="text" size="100" placeholder="Entrer votre message" > 
+                <button style="transform: translate(-17px, 4.5px);margin-left: 10px;" id="chat-message-submit"><i class="fas fa-paper-plane"></i></button>
+            </div>
+            <div class="record-buttons">
+                <button id="record-voice"><i class="fas fa-microphone"></i></button>
+                <button id="record-video"><i class="fas fa-video"></i></button>
+                <button id="quit"><i class="fas fa-sign-out-alt"></i> </button>
+                <label style="margin-top: 60px;" class="button-file" for="file" title="Joindre un fichier"><i class="fas fa-paperclip"></i></label>
             </div>
         </div>
     </div>
+
+
     
-    <div style="border: 2px solid;" id="chat-log" cols="100" rows="20" readonly></div>
-    <div id="typing-indicator" style="padding: 8px 16px; color: #ddd; font-style: italic; height: 1.2em; height: 50px;"></div>
+
+
 
     <input hidden id="file" type="file" >
 
-
-    <div class="message-buttons">
-        <input style="background: var(--primary);" id="chat-message-input" type="text" size="100" placeholder="Entrer votre message" > 
-        <button style="transform: translate(-17px, 4.5px);margin-left: 10px;" id="chat-message-submit"><i class="fas fa-paper-plane"></i></button>
-    </div>
-    <div class="record-buttons">
-        <button id="record-voice"><i class="fas fa-microphone"></i></button>
-        <button id="record-video"><i class="fas fa-video"></i></button>
-        <button id="quit"><i class="fas fa-sign-out-alt"></i> </button>
-        <label style="margin-top: 60px;" class="button-file" for="file" title="Joindre un fichier"><i class="fas fa-paperclip"></i></label>
-    </div>
+   
 
 
     
     {{ room_name|json_script:"room-name" }}
     {{ user_name|json_script:"user-name" }}
     <script>
+
+        // Gestion du menu mobile
+        document.getElementById('menu-toggle').addEventListener('click', function(e) {
+            e.stopPropagation();
+            document.querySelector('.sidebar').classList.toggle('active');
+            document.querySelector('.sidebar-overlay').classList.toggle('active');
+        });
+
+        document.querySelector('.sidebar-overlay').addEventListener('click', function() {
+            document.querySelector('.sidebar').classList.remove('active');
+            this.classList.remove('active');
+        });
+
+
         const roomName = JSON.parse(
             document.getElementById('room-name').textContent
         );
@@ -227,14 +281,25 @@
         const activeUsersList = document.getElementById('active-users-list');
         let isFirstConnection = true;
         function updateActiveUsers(users) {
-            activeUsersList.innerHTML = users
-            .filter(user => user !== userName) // Exclure l'utilisateur actuel
-            .map(user => `
-                <span style="margin: 6px;" class="user-item">
-                <span class="online-dot"></span>
-                ${user}
-                </span>
-            `).join('');
+            const userList = document.getElementById('active-users-list');
+            userList.innerHTML = users
+                .filter(user => user !== userName)
+                .map(user => `
+                    <div class="user-item" data-username="${user}">
+                        <span class="online-dot"></span>
+                        <span class="user-name">${user}</span>
+                        <i class="fas fa-comment-dots private-chat-icon"></i>
+                    </div>
+                `).join('');
+
+            // Gestionnaire pour les clics sur les utilisateurs
+            document.querySelectorAll('.user-item').forEach(item => {
+                item.onclick = (e) => {
+                    if(!e.target.classList.contains('private-chat-icon')) return;
+                    const targetUser = item.dataset.username;
+                    startPrivateChat(targetUser);
+                };
+            });
         }
 
         chatSocket.onmessage = function(e) {

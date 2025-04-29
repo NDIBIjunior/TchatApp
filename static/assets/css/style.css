@@ -39,7 +39,7 @@ display: flex;
 justify-content: center;
 align-items: center;
 gap: 10px; /* Espace entre les boutons */
-margin-top: 20px; /* Marge pour séparer des éléments précédents */
+ /* Marge pour séparer des éléments précédents */
 }
 .user-message, .other-message, .file-message,.other-message-file{
     max-height: 200px; /* Hauteur maximale pour les messages */
@@ -301,12 +301,16 @@ align-items: center;
       padding: 10px; 
       background: rgba(26,26,46,0.9);
     }
-    .message-buttons, .record-buttons {
+   .record-buttons {
       display: flex; 
       gap: 8px; 
-      margin-bottom: -43px; 
+      margin-bottom: 20px; 
       justify-content: center;
     }
+    .message-buttons{
+        margin-bottom: -25px;
+    }
+
     .message-buttons input[type="text"] {
       flex: 1; 
       padding: 12px 16px; 
@@ -584,3 +588,19 @@ align-items: center;
         font-size: 12px !important;
     }
 }
+
+/* Mobile-first approach */
+/* Téléphones (≤ 600px) */
+@media only screen and (max-width: 600px) {
+    .element {
+      width: 100% !important;
+      padding: 10px;
+    }
+  }
+  
+  /* Tablettes (601px - 992px) */
+  @media (min-width: 601px) and (max-width: 992px) {
+    .element {
+      width: 50%;
+    }
+  }
